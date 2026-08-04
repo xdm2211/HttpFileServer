@@ -2,6 +2,7 @@
  <strong>很抱歉，如果没有启用JavaScript，web将无法正常工作。请启用后继续。</strong>
  <strong>We're sorry but web doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
 </noscript>
+<input id="uploadFilePicker" class="hidden" type="file" multiple onchange="filePickerChanged(this)" />
 <!-- 拖拽上传模态框 -->
 <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
  <div class="theme-panel rounded-xl shadow-2xl w-full max-w-[70%] max-h-[80vh] mx-4 flex flex-col">
@@ -186,6 +187,54 @@ mainBody.addEventListener('dragover', function(e) { e.preventDefault(); });
 mainBody.addEventListener('dragleave', function(e) { e.preventDefault(); });
 mainBody.addEventListener('drop', dropHandle);
 
+function openUploadPicker() {
+    var picker = document.getElementById('uploadFilePicker');
+    if (picker) picker.click();
+}
+
+function filePickerChanged(input) {
+    var selectedFiles = [];
+    if (input && input.files) {
+        for (var i = 0; i < input.files.length; i++) {
+            var file = input.files[i];
+            file.fullPath = file.webkitRelativePath || file.name;
+            selectedFiles.push(file);
+        }
+    }
+    showSelectedFiles(selectedFiles);
+    if (input) input.value = '';
+}
+
+function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(character) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character];
+    });
+}
+
+function showSelectedFiles(selectedFiles) {
+    files = selectedFiles || [];
+    if (!files.length) return;
+
+    var dataStr = '';
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        var displayPath = file.fullPath || file.webkitRelativePath || file.name;
+        dataStr += "<tr class='row-hover transition-colors'>" +
+                   "<td class='px-6 py-4 whitespace-nowrap text-sm text-secondary'>" + escapeHtml(displayPath) + "</td>" +
+                   "<td class='px-6 py-4 whitespace-nowrap text-sm text-secondary'>" + escapeHtml(getFileSize(file.size)) + "</td>" +
+                   "<td class='px-6 py-4 whitespace-nowrap text-sm text-secondary'>" + escapeHtml(formatDate(file.lastModifiedDate)) + "</td>" +
+                   "<td class='px-6 py-4 whitespace-nowrap text-sm text-secondary uploadStatus'>待上传</td>" +
+                   "</tr>";
+    }
+
+    document.querySelector('#fileInfo').innerHTML = dataStr;
+    document.getElementById('overview').innerText = '文件总数：' + files.length;
+    document.querySelector('#confirm').classList.add('hidden');
+    document.querySelector('#cancel').classList.remove('hidden');
+    document.querySelector('#uploader').classList.remove('hidden');
+    document.querySelector('#uploadModal').classList.remove('hidden');
+}
+
 function dropHandle(event) {
     event.preventDefault();
     if (!event.dataTransfer || !event.dataTransfer.items) return;
@@ -200,27 +249,7 @@ function dropHandle(event) {
         for (var i = 0; i < resultFilesArrays.length; i++) {
             flat = flat.concat(resultFilesArrays[i]);
         }
-        files = flat.reverse();
-
-        var dataStr = '';
-        for (var i = 0; i < files.length; i++) {
-            var file = files[i];
-            dataStr += "<tr class='row-hover transition-colors'>" +
-                       "<td class='px-6 py-4 whitespace-nowrap text-sm text-secondary'>" + file.fullPath + "</td>" +
-                       "<td class='px-6 py-4 whitespace-nowrap text-sm text-secondary'>" + getFileSize(file.size) + "</td>" +
-                       "<td class='px-6 py-4 whitespace-nowrap text-sm text-secondary'>" + formatDate(file.lastModifiedDate) + "</td>" +
-                       "<td class='px-6 py-4 whitespace-nowrap text-sm text-secondary uploadStatus'>待上传</td>" +
-                       "</tr>";
-        }
-
-        document.querySelector('#fileInfo').innerHTML = dataStr;
-        var overview = document.getElementById('overview');
-        overview.innerText = '文件总数：' + files.length;
-
-        document.querySelector('#confirm').classList.add('hidden');
-        document.querySelector('#cancel').classList.remove('hidden');
-        document.querySelector('#uploader').classList.remove('hidden');
-        document.querySelector('#uploadModal').classList.remove('hidden');
+        showSelectedFiles(flat.reverse());
     });
 }
 //读取文件/文件夹

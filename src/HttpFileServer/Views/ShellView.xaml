@@ -348,7 +348,7 @@
                     BorderBrush="{DynamicResource PanelBorderBrush}"
                     BorderThickness="1"
                     IsEnabled="{Binding IsRunning, Converter={StaticResource boolReverse}}">
-                    <StackPanel Orientation="Horizontal">
+                    <WrapPanel Orientation="Horizontal">
                         <CheckBox
                             x:Name="ckAutoStart"
                             Margin="5,0"
@@ -380,6 +380,45 @@
                             Content="允许上传"
                             IsChecked="{Binding EnableUpload, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             IsEnabled="{Binding IsRunning, Converter={StaticResource boolReverse}}" />
+                        <Label
+                            Margin="8,0,0,0"
+                            VerticalContentAlignment="Center"
+                            Content="上传上限(MB)" />
+                        <TextBox
+                            Width="70"
+                            Height="26"
+                            VerticalContentAlignment="Center"
+                            Background="{DynamicResource PanelBackgroundBrush}"
+                            BorderBrush="{DynamicResource PanelBorderBrush}"
+                            Foreground="{DynamicResource WindowForegroundBrush}"
+                            Text="{Binding MaxUploadSizeMb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="单文件大小上限；0 表示不限制" />
+                        <Label
+                            Margin="8,0,0,0"
+                            VerticalContentAlignment="Center"
+                            Content="磁盘保留(MB)" />
+                        <TextBox
+                            Width="70"
+                            Height="26"
+                            VerticalContentAlignment="Center"
+                            Background="{DynamicResource PanelBackgroundBrush}"
+                            BorderBrush="{DynamicResource PanelBorderBrush}"
+                            Foreground="{DynamicResource WindowForegroundBrush}"
+                            Text="{Binding MinimumFreeDiskSpaceMb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="上传过程中为目标磁盘保留的最小可用空间" />
+                        <Label
+                            Margin="8,0,0,0"
+                            VerticalContentAlignment="Center"
+                            Content="扩展名白名单" />
+                        <TextBox
+                            Width="150"
+                            Height="26"
+                            VerticalContentAlignment="Center"
+                            Background="{DynamicResource PanelBackgroundBrush}"
+                            BorderBrush="{DynamicResource PanelBorderBrush}"
+                            Foreground="{DynamicResource WindowForegroundBrush}"
+                            Text="{Binding AllowedUploadExtensions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="逗号或分号分隔，例如 jpg,png,pdf；留空允许所有类型" />
                         <CheckBox
                             x:Name="ckWebMode"
                             Margin="5,0"
@@ -388,7 +427,7 @@
                             IsChecked="{Binding UseWebServer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             IsEnabled="{Binding IsRunning, Converter={StaticResource boolReverse}}"
                             ToolTip="启用后以静态 Web 服务器模式运行（优先返回 index.html、使用真实 MIME 类型）" />
-                    </StackPanel>
+                    </WrapPanel>
                 </Border>
             </TabItem>
             <TabItem Header="日志">

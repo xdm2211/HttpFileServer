@@ -71,6 +71,12 @@ namespace HttpFileServer.Handlers
                 return;
             }
 
+            if (!TryResolvePathWithinRoot(SourceDir, localPath, out var resolvedPath))
+            {
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return;
+            }
+
             var useJson = request.AcceptTypes != null && request.AcceptTypes.Any(p => p.Equals("application/json", StringComparison.OrdinalIgnoreCase));
             // JSON responses are always enabled when the client requests application/json
             if (useJson)
@@ -83,9 +89,7 @@ namespace HttpFileServer.Handlers
             //预览时不触发下载/zip逻辑，直接正常响应内容
             if (isPreview)
             {
-                var tmp = Path.Combine(SourceDir, request.Url.LocalPath.TrimStart('/'));
-                var dstpath = tmp.Replace('/', '\\');
-                await ResponseContentFull(dstpath, request, response, false, true);
+                await ResponseContentFull(resolvedPath, request, response, false, true);
                 return;
             }
 
@@ -106,8 +110,7 @@ namespace HttpFileServer.Handlers
                 return;
             }
 
-            var tmp2 = Path.Combine(SourceDir, request.Url.LocalPath.TrimStart('/'));
-            var dstpath2 = tmp2.Replace('/', '\\');
+            var dstpath2 = resolvedPath;
 
             // If debug resource dir is provided and exists, bypass server-side cache for directory pages
             var isDir = Directory.Exists(dstpath2);
@@ -159,8 +162,7 @@ namespace HttpFileServer.Handlers
             {
                 try
                 {
-                    var debugPath = Path.Combine(_debugResourceDir, rel.Replace('/', '\\'));
-                    if (File.Exists(debugPath))
+                    if (TryResolvePathWithinRoot(_debugResourceDir, rel, out var debugPath) && File.Exists(debugPath))
                     {
                         await ResponseContentFull(debugPath, request, response, false, true);
                         return;
@@ -262,12 +264,11 @@ namespace HttpFileServer.Handlers
             Stream stream = null;
             var fileExist = false;
 
-            // Guard against path traversal: ensure resolved path stays within SourceDir
-            // or within the debug resource directory when one is configured.
-            string safeRoot, safePath;
+            // Guard every final filesystem access as defense in depth. Debug resources
+            // remain available only when they resolve inside the explicitly configured root.
+            string safePath;
             try
             {
-                safeRoot = Path.GetFullPath(SourceDir);
                 safePath = Path.GetFullPath(path);
             }
             catch (Exception)
@@ -275,19 +276,8 @@ namespace HttpFileServer.Handlers
                 // Invalid path characters or other path resolution errors
                 return new Tuple<string, Stream, bool>(contentType, null, false);
             }
-            var insideSourceDir = safePath.Equals(safeRoot, StringComparison.OrdinalIgnoreCase) ||
-                                  safePath.StartsWith(safeRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-            var insideDebugDir = false;
-            if (!insideSourceDir && !string.IsNullOrWhiteSpace(_debugResourceDir))
-            {
-                try
-                {
-                    var safeDebugRoot = Path.GetFullPath(_debugResourceDir).TrimEnd(Path.DirectorySeparatorChar);
-                    insideDebugDir = safePath.Equals(safeDebugRoot, StringComparison.OrdinalIgnoreCase) ||
-                                     safePath.StartsWith(safeDebugRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-                }
-                catch { }
-            }
+            var insideSourceDir = IsPathWithinRoot(SourceDir, safePath);
+            var insideDebugDir = !string.IsNullOrWhiteSpace(_debugResourceDir) && IsPathWithinRoot(_debugResourceDir, safePath);
             if (!insideSourceDir && !insideDebugDir)
             {
                 System.Diagnostics.Trace.TraceWarning($"Path traversal attempt blocked: resolved path outside SourceDir");
@@ -327,13 +317,36 @@ namespace HttpFileServer.Handlers
             return new Tuple<string, Stream, bool>(contentType, stream, fileExist);
         }
 
+        private static string GetSafeHeaderFileName(string fileName)
+        {
+            var result = new StringBuilder();
+            foreach (var character in fileName ?? string.Empty)
+            {
+                if (character >= 0x21 && character <= 0x7e &&
+                    character != '"' && character != '\\' && character != ';')
+                {
+                    result.Append(character);
+                }
+                else
+                {
+                    result.Append('_');
+                }
+            }
+
+            var safeName = result.ToString().Trim('_');
+            return string.IsNullOrWhiteSpace(safeName) ? "download.zip" : safeName;
+        }
+
         protected virtual async Task ProcessJsonRequest(HttpListenerContext context)
         {
             var request = context.Request;
             var response = context.Response;
 
-            var tmp = Path.Combine(SourceDir, request.Url.LocalPath.TrimStart('/'));
-            var dstpath = tmp.Replace('/', '\\');
+            if (!TryResolvePathWithinRoot(SourceDir, request.Url.LocalPath, out var dstpath))
+            {
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return;
+            }
             //IfNoMatchCheck
             var requestETag = request.Headers["If-None-Match"];
             var cacheTag = _jsonCacheSrv.GetPathCacheId(dstpath);
@@ -353,6 +366,12 @@ namespace HttpFileServer.Handlers
                         await ResponseContentPartial(dstpath, request, response);
                     else
                         await ResponseContentFull(dstpath, request, response);
+                    return;
+                }
+
+                if (!Directory.Exists(dstpath))
+                {
+                    response.StatusCode = (int)HttpStatusCode.NotFound;
                     return;
                 }
 
@@ -402,8 +421,11 @@ namespace HttpFileServer.Handlers
             var request = context.Request;
             var resp = context.Response;
 
-            var tmp = Path.Combine(SourceDir, request.Url.LocalPath.TrimStart('/'));
-            var path = tmp.Replace('/', '\\');
+            if (!TryResolvePathWithinRoot(SourceDir, request.Url.LocalPath, out var path))
+            {
+                resp.StatusCode = (int)HttpStatusCode.Forbidden;
+                return false;
+            }
 
             resp.ContentType = "application/zip";
             resp.ContentEncoding = Encoding.UTF8;
@@ -434,8 +456,9 @@ namespace HttpFileServer.Handlers
             }
 
             // Build Content-Disposition with both plain filename and RFC5987 encoded filename*
-            var plainFileName = $"{dirname}.zip";
-            var encodedFileName = Uri.EscapeDataString(plainFileName);
+            var originalFileName = $"{dirname}.zip";
+            var plainFileName = GetSafeHeaderFileName(originalFileName);
+            var encodedFileName = Uri.EscapeDataString(originalFileName);
             var contentDisposition = $"attachment; filename=\"{plainFileName}\"; filename*=UTF-8''{encodedFileName}";
             try
             {

@@ -166,6 +166,26 @@ namespace HttpFileServer.Servers
             LogGenerated?.BeginInvoke(this, content, null, null);
         }
 
+        private static string SanitizeLogValue(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return value;
+
+            var result = new StringBuilder(value.Length);
+            foreach (var character in value)
+            {
+                if (character == '\r')
+                    result.Append("\\r");
+                else if (character == '\n')
+                    result.Append("\\n");
+                else if (char.IsControl(character))
+                    result.Append('?');
+                else
+                    result.Append(character);
+            }
+            return result.ToString();
+        }
+
         protected void RegisterHandler(string methodName, IHttpHandler handler)
         {
             RegisteredHandlers[methodName] = handler;
@@ -177,10 +197,14 @@ namespace HttpFileServer.Servers
             var response = context.Response;
 
             var remotePoint = request.RemoteEndPoint.ToString();
-            var method = request.HttpMethod.ToUpper();
+            var method = request.HttpMethod.ToUpperInvariant();
             var url = Uri.UnescapeDataString(request.Url.PathAndQuery);
             var range = request.Headers["Range"];
-            RecordLog($"{remotePoint} {method} {url} {range}");
+            var safeRemotePoint = SanitizeLogValue(remotePoint);
+            var safeMethod = SanitizeLogValue(method);
+            var safeUrl = SanitizeLogValue(url);
+            var safeRange = SanitizeLogValue(range);
+            RecordLog($"{safeRemotePoint} {safeMethod} {safeUrl} {safeRange}");
 
             var requestModel = new RequestModel(url, request.RemoteEndPoint, method);
             RaiseRequestIn(requestModel);
@@ -213,7 +237,7 @@ namespace HttpFileServer.Servers
                 response.AddHeader("Access-Control-Allow-Methods", string.Join(",", RegisteredHandlers.Keys.Concat(new[] { "OPTIONS" })));
                 response.AddHeader("Access-Control-Allow-Headers", "Content-Type,X-Requested-With");
                 try { response.Close(); } catch { }
-                RecordLog($"{remotePoint} {method} {url} {range} {response.StatusCode}");
+                RecordLog($"{safeRemotePoint} {safeMethod} {safeUrl} {safeRange} {response.StatusCode}");
                 RaiseRequestOut(requestModel);
             }
         }

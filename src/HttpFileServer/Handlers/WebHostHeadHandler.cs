@@ -24,8 +24,11 @@ namespace HttpFileServer.Handlers
             var request = context.Request;
             var response = context.Response;
 
-            var tmp = Path.Combine(SourceDir, request.Url.LocalPath.TrimStart('/'));
-            var dstpath = tmp.Replace('/', '\\');
+            if (!TryResolvePathWithinRoot(SourceDir, request.Url.LocalPath, out var dstpath))
+            {
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return;
+            }
 
             if (Directory.Exists(dstpath))
             {

@@ -36,8 +36,11 @@ namespace HttpFileServer.Handlers
             }
 
             // If URL maps to a directory, prefer serving index.html inside it
-            var tmp = Path.Combine(SourceDir, request.Url.LocalPath.TrimStart('/'));
-            var dstpath = tmp.Replace('/', '\\');
+            if (!TryResolvePathWithinRoot(SourceDir, request.Url.LocalPath, out var dstpath))
+            {
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return;
+            }
 
             if (Directory.Exists(dstpath))
             {

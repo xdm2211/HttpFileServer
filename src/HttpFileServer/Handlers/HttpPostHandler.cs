@@ -13,9 +13,9 @@ namespace HttpFileServer.Handlers
 
         #region Constructors
 
-        public HttpPostHandler(string rootDir) : base(rootDir)
+        public HttpPostHandler(string rootDir, long maxUploadSizeBytes = 0, string allowedUploadExtensions = null, long minimumFreeDiskSpaceBytes = 0) : base(rootDir)
         {
-            _postFileHandler = new HttpPostFileHandler(rootDir);
+            _postFileHandler = new HttpPostFileHandler(rootDir, maxUploadSizeBytes, allowedUploadExtensions, minimumFreeDiskSpaceBytes);
         }
 
         #endregion Constructors
