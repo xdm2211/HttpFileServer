@@ -36,6 +36,24 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Apply tag version to assembly
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)$') {
+            throw "Release tag must use semantic version format vMAJOR.MINOR.PATCH."
+          }
+
+          $version = "$($Matches.major).$($Matches.minor).$($Matches.patch)"
+          $assemblyVersion = "$version.0"
+          $assemblyInfo = "src/HttpFileServer/Properties/AssemblyInfo.cs"
+          $content = Get-Content $assemblyInfo -Raw
+          $content = $content -replace 'AssemblyVersion\("[^"]+"\)', "AssemblyVersion(`"$assemblyVersion`")"
+          $content = $content -replace 'AssemblyFileVersion\("[^"]+"\)', "AssemblyFileVersion(`"$assemblyVersion`")"
+          $content = $content -replace 'AssemblyInformationalVersion\("[^"]+"\)', "AssemblyInformationalVersion(`"$version`")"
+          Set-Content $assemblyInfo $content -Encoding utf8NoBOM
+
       - name: Restore packages
         run: nuget restore src\HttpFileServer.sln -NonInteractive
 
