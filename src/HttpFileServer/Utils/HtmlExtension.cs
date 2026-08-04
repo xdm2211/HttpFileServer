@@ -56,6 +56,7 @@ namespace HttpFileServer.Utils
             {
                 var di = new DirectoryInfo(dir);
                 var row = dirRowTemplate;
+                row = row.Replace("${file.urlName}", HttpUtility.HtmlAttributeEncode(Uri.EscapeDataString(di.Name)));
                 row = row.Replace("${file.name}", HttpUtility.HtmlEncode(di.Name));
                 row = row.Replace("${file.size}", "--");
                 row = row.Replace("${file.modified}", di.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss"));
@@ -75,10 +76,11 @@ namespace HttpFileServer.Utils
             {
                 var fi = new FileInfo(file);
                 var row = fileRowTemplate;
+                row = row.Replace("${file.urlName}", HttpUtility.HtmlAttributeEncode(Uri.EscapeDataString(fi.Name)));
                 row = row.Replace("${file.name}", HttpUtility.HtmlEncode(fi.Name));
                 row = row.Replace("${file.size}", SizeHelper.BytesToSize(fi.Length));
                 row = row.Replace("${file.modified}", fi.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss"));
-                row = row.Replace("${file.type}", fi.Extension);
+                row = row.Replace("${file.type}", HttpUtility.HtmlEncode(fi.Extension));
                 // replace fullPath if template contains it
                 try {
                     var fileFull = fi.FullName;
@@ -98,15 +100,15 @@ namespace HttpFileServer.Utils
             var sourceDir = rootdir.TrimEnd('\\', '/');
             var shareRoot = Path.GetFileName(sourceDir);
             var relPath = dstpath;
-            if (relPath.StartsWith(sourceDir)) relPath = relPath.Substring(sourceDir.Length).TrimStart('\\', '/');
+            if (relPath.StartsWith(sourceDir, StringComparison.OrdinalIgnoreCase)) relPath = relPath.Substring(sourceDir.Length).TrimStart('\\', '/');
             var pathParts = relPath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
             var breadCrumb = new StringBuilder();
-            breadCrumb.Append($"<a href='/'>" + shareRoot + "</a>");
+            breadCrumb.Append("<a href='/'>" + HttpUtility.HtmlEncode(shareRoot) + "</a>");
             string curPath = "";
             for (int i = 0; i < pathParts.Length; i++)
             {
-                curPath += "/" + pathParts[i];
-                breadCrumb.Append($" / <a href='{curPath}/'>{pathParts[i]}</a>");
+                curPath += "/" + Uri.EscapeDataString(pathParts[i]);
+                breadCrumb.Append($" / <a href='{HttpUtility.HtmlAttributeEncode(curPath)}/'>{HttpUtility.HtmlEncode(pathParts[i])}</a>");
             }
 
             // Try to load template and auxiliary resources from debugResourceDir when provided.
@@ -127,7 +129,8 @@ namespace HttpFileServer.Utils
             {
                 content = HtmlResource.HtmlTemplate;
             }
-            content = content.Replace("{{title}}", title);
+            var safeTitle = HttpUtility.HtmlEncode(title);
+            content = content.Replace("{{title}}", safeTitle);
             content = content.Replace("{{header}}", breadCrumb.ToString());
             content = content.Replace("{{itemcount}}", (dirs.Length + files.Length).ToString());
             content = content.Replace("{{footer}}", footerContent);
@@ -148,7 +151,7 @@ namespace HttpFileServer.Utils
             {
                 var replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["title"] = title,
+                    ["title"] = safeTitle,
                     ["header"] = breadCrumb.ToString(),
                     ["itemcount"] = (dirs.Length + files.Length).ToString(),
                     ["footer"] = footerContent,

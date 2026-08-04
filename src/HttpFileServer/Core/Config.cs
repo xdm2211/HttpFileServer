@@ -23,6 +23,21 @@ namespace HttpFileServer.Core
         public bool EnableUpload { get; set; } = false;
 
         /// <summary>
+        /// 单个上传文件的大小上限（MB）。0 表示不限制。
+        /// </summary>
+        public int MaxUploadSizeMb { get; set; } = 1024;
+
+        /// <summary>
+        /// 上传时为目标磁盘保留的最小可用空间（MB）。
+        /// </summary>
+        public int MinimumFreeDiskSpaceMb { get; set; } = 100;
+
+        /// <summary>
+        /// 允许上传的扩展名，以逗号或分号分隔。留空表示允许所有类型。
+        /// </summary>
+        public string AllowedUploadExtensions { get; set; } = string.Empty;
+
+        /// <summary>
         /// 开机自启动后最小化到托盘
         /// </summary>
         public bool MinimizeToTrayAfterAutoStart { get; set; } = true;

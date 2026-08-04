@@ -28,6 +28,7 @@ namespace HttpFileServer.ViewModels
 
         private ConfigService _cfgSrv;
         private Config _config;
+        private string _allowedUploadExtensions = string.Empty;
         private bool _enableUpload = false;
         private ImageSource _ipv4QrImage;
         private string _ipv4Text;
@@ -37,6 +38,8 @@ namespace HttpFileServer.ViewModels
         private ushort _listenPort = 80;
         private string _logContent = string.Empty;
         private bool _logIsReadOnly = false;
+        private int _maxUploadSizeMb = 1024;
+        private int _minimumFreeDiskSpaceMb = 100;
         private ObservableCollection<NetworkAdapterModel> _networkAdapters = new ObservableCollection<NetworkAdapterModel>();
         private NetworkAdapterModel _selectedNetworkAdapter;
         private int _selectedTabIndex = 0;
@@ -113,6 +116,24 @@ namespace HttpFileServer.ViewModels
         {
             get => _enableUpload;
             set => SetProperty(ref _enableUpload, value);
+        }
+
+        public string AllowedUploadExtensions
+        {
+            get => _allowedUploadExtensions;
+            set => SetProperty(ref _allowedUploadExtensions, value);
+        }
+
+        public int MaxUploadSizeMb
+        {
+            get => _maxUploadSizeMb;
+            set => SetProperty(ref _maxUploadSizeMb, Math.Max(0, value));
+        }
+
+        public int MinimumFreeDiskSpaceMb
+        {
+            get => _minimumFreeDiskSpaceMb;
+            set => SetProperty(ref _minimumFreeDiskSpaceMb, Math.Max(0, value));
         }
 
         public IFileServer FileServer { get; private set; }
@@ -238,6 +259,9 @@ namespace HttpFileServer.ViewModels
             SourceDir = cfg.RootDir;
             ListenPort = cfg.Port;
             EnableUpload = cfg.EnableUpload;
+            MaxUploadSizeMb = cfg.MaxUploadSizeMb;
+            MinimumFreeDiskSpaceMb = cfg.MinimumFreeDiskSpaceMb;
+            AllowedUploadExtensions = cfg.AllowedUploadExtensions ?? string.Empty;
             UseWebServer = cfg.UseWebServer;
             AutoStartOnLaunch = cfg.AutoStartOnLaunch;
             AutoStartWithSystem = cfg.AutoStartWithSystem;
@@ -288,6 +312,9 @@ namespace HttpFileServer.ViewModels
             _config.RootDir = SourceDir;
             _config.Port = (ushort)ListenPort;
             _config.EnableUpload = EnableUpload;
+            _config.MaxUploadSizeMb = MaxUploadSizeMb;
+            _config.MinimumFreeDiskSpaceMb = MinimumFreeDiskSpaceMb;
+            _config.AllowedUploadExtensions = AllowedUploadExtensions;
             _config.UseWebServer = UseWebServer;
             _config.ThemeMode = ThemeMode; // 保存当前主题模式
             _config.AutoStartOnLaunch = AutoStartOnLaunch;
@@ -328,6 +355,16 @@ namespace HttpFileServer.ViewModels
         private bool CanStartServer()
         {
             return !IsRunning && !string.IsNullOrWhiteSpace(SourceDir);
+        }
+
+        private long GetMaxUploadSizeBytes()
+        {
+            return MaxUploadSizeMb <= 0 ? 0 : (long)MaxUploadSizeMb * 1024L * 1024L;
+        }
+
+        private long GetMinimumFreeDiskSpaceBytes()
+        {
+            return MinimumFreeDiskSpaceMb <= 0 ? 0 : (long)MinimumFreeDiskSpaceMb * 1024L * 1024L;
         }
 
         private bool CanStopServer()
@@ -482,17 +519,17 @@ namespace HttpFileServer.ViewModels
             if (!string.IsNullOrWhiteSpace(debugRes))
             {
                 // Pass debug resource directory to server base so handlers can read templates directly
-                FileServer = new DefaultFileServer(ListenPort, SourceDir, true, EnableUpload)
+                FileServer = new DefaultFileServer(ListenPort, SourceDir, true, EnableUpload, GetMaxUploadSizeBytes(), AllowedUploadExtensions, GetMinimumFreeDiskSpaceBytes())
                 {
                 };
             }
             else if (UseWebServer)
             {
-                FileServer = new StaticWebHostServer(ListenPort, SourceDir, true, EnableUpload);
+                FileServer = new StaticWebHostServer(ListenPort, SourceDir, true, EnableUpload, GetMaxUploadSizeBytes(), AllowedUploadExtensions, GetMinimumFreeDiskSpaceBytes());
             }
             else
             {
-                FileServer = new DefaultFileServer(ListenPort, SourceDir, true, EnableUpload); // 始终启用JSON
+                FileServer = new DefaultFileServer(ListenPort, SourceDir, true, EnableUpload, GetMaxUploadSizeBytes(), AllowedUploadExtensions, GetMinimumFreeDiskSpaceBytes()); // 始终启用JSON
             }
 
             FileServer.LogGenerated += FileServer_LogGenerated;

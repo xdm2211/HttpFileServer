@@ -13,7 +13,8 @@ namespace HttpFileServer.Servers
     /// </summary>
     public class StaticWebHostServer : DefaultFileServer
     {
-        public StaticWebHostServer(int port, string path, bool enableJson, bool enableUpload = false) : base(port, path, enableJson, enableUpload)
+        public StaticWebHostServer(int port, string path, bool enableJson, bool enableUpload = false, long maxUploadSizeBytes = 0, string allowedUploadExtensions = null, long minimumFreeDiskSpaceBytes = 0)
+            : base(port, path, enableJson, enableUpload, maxUploadSizeBytes, allowedUploadExtensions, minimumFreeDiskSpaceBytes)
         {
         }
 
@@ -26,7 +27,7 @@ namespace HttpFileServer.Servers
             RegisterHandler("GET", new WebHostGetHandler(_rootDir, _cacheSrv, _jsonCacheSrv, _jsonService, EnableUpload, _enableJson));
 
             if (EnableUpload)
-                RegisterHandler("POST", new HttpPostHandler(_rootDir));
+                RegisterHandler("POST", new HttpPostHandler(_rootDir, _maxUploadSizeBytes, _allowedUploadExtensions, _minimumFreeDiskSpaceBytes));
         }
     }
 }

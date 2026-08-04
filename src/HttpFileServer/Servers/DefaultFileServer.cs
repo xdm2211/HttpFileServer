@@ -27,6 +27,9 @@ namespace HttpFileServer.Servers
         protected CacheService _jsonCacheSrv;
         protected JsonService _jsonService;
         protected string _rootDir;
+        protected string _allowedUploadExtensions;
+        protected long _maxUploadSizeBytes;
+        protected long _minimumFreeDiskSpaceBytes;
 
         private string debugDir = App.Current is App app ? app.DebugResourcePath : null;
 
@@ -34,13 +37,16 @@ namespace HttpFileServer.Servers
 
         #region Constructors
 
-        public DefaultFileServer(int port, string path, bool enableJson, bool enableUpload = false) : base(port, path, enableUpload)
+        public DefaultFileServer(int port, string path, bool enableJson, bool enableUpload = false, long maxUploadSizeBytes = 0, string allowedUploadExtensions = null, long minimumFreeDiskSpaceBytes = 0) : base(port, path, enableUpload)
         {
             _rootDir = path;
             _cacheSrv = CacheService.GetDefault();
             _jsonCacheSrv = new CacheService();
             _enableJson = enableJson;
             _jsonService = new JsonService();
+            _maxUploadSizeBytes = maxUploadSizeBytes;
+            _allowedUploadExtensions = allowedUploadExtensions;
+            _minimumFreeDiskSpaceBytes = minimumFreeDiskSpaceBytes;
         }
 
         #endregion Constructors
@@ -61,7 +67,7 @@ namespace HttpFileServer.Servers
             RegisterHandler("GET", new HttpGetHandler(_rootDir, _cacheSrv, _jsonCacheSrv, _jsonService, EnableUpload, _enableJson, debugDir));
 
             if (EnableUpload)
-                RegisterHandler("POST", new HttpPostHandler(_rootDir));
+                RegisterHandler("POST", new HttpPostHandler(_rootDir, _maxUploadSizeBytes, _allowedUploadExtensions, _minimumFreeDiskSpaceBytes));
         }
 
         protected override void OnLocalFileSrv_DirContentChanged(object sender, string path)
