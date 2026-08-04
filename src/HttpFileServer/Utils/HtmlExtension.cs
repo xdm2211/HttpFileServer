@@ -130,10 +130,14 @@ namespace HttpFileServer.Utils
                 content = HtmlResource.HtmlTemplate;
             }
             var safeTitle = HttpUtility.HtmlEncode(title);
+            var uploadButton = enableUpload
+                ? "<button type=\"button\" class=\"flex-none px-3 py-2 btn-accent rounded-lg text-sm whitespace-nowrap\" onclick=\"openUploadPicker()\" aria-label=\"选择文件上传\"><span class=\"hidden sm:inline\">选择文件上传</span><span class=\"sm:hidden\">上传</span></button>"
+                : "";
             content = content.Replace("{{title}}", safeTitle);
             content = content.Replace("{{header}}", breadCrumb.ToString());
             content = content.Replace("{{itemcount}}", (dirs.Length + files.Length).ToString());
             content = content.Replace("{{footer}}", footerContent);
+            content = content.Replace("{{uploadButton}}", uploadButton);
             // Upload section: allow overriding from debug resource dir
             string uploadSection = HtmlResource.UploadSection;
             try
@@ -155,6 +159,7 @@ namespace HttpFileServer.Utils
                     ["header"] = breadCrumb.ToString(),
                     ["itemcount"] = (dirs.Length + files.Length).ToString(),
                     ["footer"] = footerContent,
+                    ["uploadButton"] = uploadButton,
                     ["uploadSection"] = enableUpload ? uploadSection : "",
                     ["tableRows"] = sb.ToString(),
                 };
